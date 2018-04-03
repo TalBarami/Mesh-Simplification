@@ -25,6 +25,9 @@ struct Edge
 	OBJIndex* vertex1;
 	OBJIndex* vertex2;
 	double error;
+
+	bool operator<(const Edge& r) const { return error < r.error; } // TODO: min / max heap
+	bool operator==(const Edge& r) const { return (vertex1 == r.vertex1 && vertex2 == r.vertex2) || (vertex1 == r.vertex2 && vertex2 == r.vertex1); }
 };
 
 struct IndexedModel
@@ -43,6 +46,7 @@ public:
     std::list<OBJIndex> OBJIndices;
     std::vector<glm::vec3> vertices;
 	std::vector<Edge> edges;
+	std::map<OBJIndex, std::list<OBJIndex>> neighbors;
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
 	std::vector<glm::vec3> colors;
@@ -56,11 +60,11 @@ public:
 private:
     unsigned int FindLastVertexIndex(const std::vector<OBJIndex*>& indexLookup, const OBJIndex* currentIndex, const IndexedModel& result);
     void CreateOBJFace(const std::string& line);
-    
+	void AddOBJFace(OBJIndex& v1, OBJIndex& v2, OBJIndex& v3);
+	Edge CreateEdge(OBJIndex& v1, OBJIndex& v2);
     glm::vec2 ParseOBJVec2(const std::string& line);
     glm::vec3 ParseOBJVec3(const std::string& line);
     OBJIndex ParseOBJIndex(const std::string& token, bool* hasUVs, bool* hasNormals);
-	Edge CreateEdge(OBJIndex v1, OBJIndex v2);
 	void CalcNormals();
 
 };

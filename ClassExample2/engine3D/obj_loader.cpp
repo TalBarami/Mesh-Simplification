@@ -314,6 +314,17 @@ void OBJModel::CreateOBJFace(const std::string& line)
 	OBJIndex v2 = ParseOBJIndex(tokens[2], &this->hasUVs, &this->hasNormals);
 	OBJIndex v3 = ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals);
 
+	AddOBJFace(v1, v2, v3);
+
+	if ((int)tokens.size() > 4)//triangulation
+	{
+		OBJIndex v4 = ParseOBJIndex(tokens[4], &this->hasUVs, &this->hasNormals);
+		AddOBJFace(v1, v3, v4);
+	}
+}
+
+void OBJModel::AddOBJFace(OBJIndex& v1, OBJIndex& v2, OBJIndex& v3)
+{
 	OBJIndices.push_back(v1);
 	OBJIndices.push_back(v2);
 	OBJIndices.push_back(v3);
@@ -321,19 +332,23 @@ void OBJModel::CreateOBJFace(const std::string& line)
 	edges.push_back(CreateEdge(v1, v2));
 	edges.push_back(CreateEdge(v2, v3));
 	edges.push_back(CreateEdge(v3, v1));
+}
 
-	if ((int)tokens.size() > 4)//triangulation
+Edge OBJModel::CreateEdge(OBJIndex& v1, OBJIndex& v2)
+{
+	Edge e;
+
+	e.vertex1 = &v1;
+	e.vertex2 = &v2;
+	e.error = 0; // TODO: Calculate error
+
+	if (std::find(neighbors[v1].begin(), neighbors[v1].end(), v2) == neighbors[v1].end())
 	{
-		OBJIndex v4 = ParseOBJIndex(tokens[4], &this->hasUVs, &this->hasNormals);
-
-		OBJIndices.push_back(v1);
-		OBJIndices.push_back(v3);
-		OBJIndices.push_back(v4);
-
-		edges.push_back(CreateEdge(v1, v3));
-		edges.push_back(CreateEdge(v3, v4));
-		edges.push_back(CreateEdge(v4, v1));
+		neighbors[v1].push_back(v2);
+		neighbors[v2].push_back(v1);
 	}
+
+	return e;
 }
 
 OBJIndex OBJModel::ParseOBJIndex(const std::string& token, bool* hasUVs, bool* hasNormals)
@@ -371,17 +386,6 @@ OBJIndex OBJModel::ParseOBJIndex(const std::string& token, bool* hasUVs, bool* h
     *hasNormals = true;
     
     return result;
-}
-
-Edge OBJModel::CreateEdge(OBJIndex v1, OBJIndex v2)
-{
-	Edge e;
-
-	e.vertex1 = &v1;
-	e.vertex2 = &v2;
-	e.error = 0; // TODO: Calculate error
-
-	return e;
 }
 
 glm::vec3 OBJModel::ParseOBJVec3(const std::string& line) 

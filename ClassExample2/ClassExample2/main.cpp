@@ -10,7 +10,7 @@ int main(int argc, char** argv)
 	initCallbacks(display);
 	//scn.addShape("./res/objs/bigbox.obj","./res/textures/box0.bmp");
 	//scn.addShape("./res/objs/testboxNoUV.obj");
-	scn.addShape("./res/objs/monkey3.obj","./res/texture/box0.bmp");
+	scn.addShape("./res/objs/monkey3.obj","./res/textures/box0.bmp");
 	scn.addShader("./res/shaders/basicShader");
 	scn.addShader("./res/shaders/pickingShader");
 
