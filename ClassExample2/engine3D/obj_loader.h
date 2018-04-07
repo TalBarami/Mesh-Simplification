@@ -26,13 +26,12 @@ struct Edge
 	OBJIndex* vertex2;
 	double error;
 
-	bool operator<(const Edge& r) const { return error < r.error; } // TODO: min / max heap
+	bool operator<(const Edge& r) const { return error > r.error; }
 	bool operator==(const Edge& r) const { return (vertex1 == r.vertex1 && vertex2 == r.vertex2) || (vertex1 == r.vertex2 && vertex2 == r.vertex1); }
 };
 
 struct IndexedModel
 {
-
     std::vector<glm::vec3> positions;
     std::vector<glm::vec2> texCoords;
     std::vector<glm::vec3> normals;
@@ -45,6 +44,7 @@ class OBJModel
 public:
     std::list<OBJIndex> OBJIndices;
     std::vector<glm::vec3> vertices;
+	std::vector<glm::mat4> Q;
 	std::vector<Edge> edges;
 	std::map<OBJIndex, std::list<OBJIndex>> neighbors;
     std::vector<glm::vec2> uvs;
@@ -67,6 +67,9 @@ private:
     OBJIndex ParseOBJIndex(const std::string& token, bool* hasUVs, bool* hasNormals);
 	void CalcNormals();
 
+	void Simplify(int maxFaces);
+	void InitializeSimplification();
+	void CalculateEdgeError(Edge& e);
 };
 
 #endif // OBJ_LOADER_H_INCLUDED

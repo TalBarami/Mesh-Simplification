@@ -65,53 +65,121 @@ OBJModel::OBJModel(const std::string& fileName)
 
 void OBJModel::CalcNormals()
 {
-    for(std::list<OBJIndex>::iterator it = OBJIndices.begin(); it != OBJIndices.end(); it++)
-    {
-        int i0 = (*it).vertexIndex;
+	float *count = new float[normals.size()];
+	for (int i = 0; i < normals.size(); i++)
+	{
+		count[i] = 0;
+	}
+	for (std::list<OBJIndex>::iterator it = OBJIndices.begin(); it != OBJIndices.end(); ++it)
+	{
+		int i0 = (*it).vertexIndex;
 		(*it).normalIndex = i0;
-		it++;
-        int i1 = (*it).vertexIndex;
+		++it;
+		int i1 = (*it).vertexIndex;
 		(*it).normalIndex = i1;
-		it++;
-        int i2 = (*it).vertexIndex;
+		++it;
+		int i2 = (*it).vertexIndex;
 		(*it).normalIndex = i2;
+		glm::vec3 v1 = vertices[i1] - vertices[i0];
+		glm::vec3 v2 = vertices[i2] - vertices[i0];
+		glm::vec3 normal = glm::normalize(glm::cross(v2, v1));
+		if (count[i0] == 0) {
+			count[i0] = 1.0f;
+		}
+		else {
+			count[i0] = count[i0] / (count[i0] + 1);
+		}
+		if (count[i1] == 0) {
+			count[i1] = 1.0f;
+		}
+		else
+			count[i1] = count[i1] / (count[i1] + 1);
+		if (count[i2] == 0) {
+			count[i2] = 1.0f;
+		}
+		else
+			count[i2] = count[i2] / (count[i2] + 1);
+		normals[i0] += normal;
+		normals[i1] += normal;
+		normals[i2] += normal;
+	}
 
-        glm::vec3 v1 = vertices[i1] - vertices[i0];
-        glm::vec3 v2 = vertices[i2] - vertices[i0];
-        
-        glm::vec3 normal = glm::normalize(glm::cross(v1, v2));
-            
-        normals[i0] += normal;
-        normals[i1] += normal;
-        normals[i2] += normal;
-    }
-    
+	for (auto i = 0; i < normals.size(); i++)
+	{
+		normals[i] = normals[i] * count[i];
+	}
+	delete[] count;
 }
- 
-//void IndexedModel::CalcNormals()
-//{
-//    for(unsigned int i = 0; i < indices.size(); i += 3)
-//    {
-//        int i0 = indices[i];
-//        int i1 = indices[i + 1];
-//        int i2 = indices[i + 2];
-//
-//        glm::vec3 v1 = positions[i1] - positions[i0];
-//        glm::vec3 v2 = positions[i2] - positions[i0];
-//        
-//        glm::vec3 normal = glm::normalize(glm::cross(v1, v2));
-//            
-//        normals[i0] += normal;
-//        normals[i1] += normal;
-//        normals[i2] += normal;
-//    }
-//    
-//    for(unsigned int i = 0; i < positions.size(); i++)
-//	{
-//        normals[i] = glm::normalize(normals[i]);
-//		colors[i] = (normals[i]+glm::vec3(1,1,1))*0.5f;
-//	}
-//}
+
+void OBJModel::Simplify(int maxFaces)
+{
+	using namespace glm;
+	using namespace std;
+	for (auto i = 0; i < vertices.size(); i++)
+	{
+		Q.push_back(mat4(0));
+	}
+
+	InitializeSimplification();
+
+	// Suggestion:
+	/* 
+		- Make heap
+		- Extract min
+
+	
+	*/
+}
+
+void OBJModel::InitializeSimplification()
+{
+	using namespace glm;
+	for (auto it = OBJIndices.begin(); it != OBJIndices.end(); ++it)
+	{
+		auto i0 = (*it).vertexIndex;
+		auto v0 = vertices[i0];
+		++it;
+		auto i1 = (*it).vertexIndex;
+		auto v1 = vertices[i1];
+		++it;
+		auto i2 = (*it).vertexIndex;
+		auto v2 = vertices[i2];
+
+		auto u = v1 - v0;
+		auto v = v2 - v0;
+		auto normal = cross(u, v);
+		auto a = normal.x;
+		auto b = normal.y;
+		auto c = normal.z;
+		auto d = dot(normal, v0);
+		
+		auto kp = mat4(
+			a * a, a * b, a * c, a * d,
+			a * b, b * b, b * c, b * d,
+			a * c, b * c, c * c, c * d,
+			a * d, b * d, c * d, d * d
+			);
+
+		Q[i0] += kp;
+		Q[i1] += kp;
+		Q[i2] += kp;
+	}
+
+	for (auto e : edges)
+	{
+		CalculateEdgeError(e);
+	}
+}
+
+void OBJModel::CalculateEdgeError(Edge& e)
+{
+	auto v = glm::vec4((vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f, 1);
+	auto q1 = Q[e.vertex1->vertexIndex];
+	auto q2 = Q[e.vertex2->vertexIndex];
+	auto mv = (q1 + q2) * v;
+	e.error = glm::dot(v, mv);
+}
+
 
 IndexedModel OBJModel::ToIndexedModel()
 {
