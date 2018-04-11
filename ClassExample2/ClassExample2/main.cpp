@@ -8,7 +8,7 @@ Scene scn(glm::vec3(0.0f, 0.0f, -15.0f), CAM_ANGLE, relation, NEAR, FAR);
 
 int main(int argc, char** argv)
 {
-	auto maxFaces = 100;
+	auto maxFaces = 800;
 	
 
 	initCallbacks(display);
@@ -16,6 +16,7 @@ int main(int argc, char** argv)
 	//scn.addShape("./res/objs/testboxNoUV.obj");
 	//scn.addShape("./res/objs/bigbox.obj","./res/textures/box0.bmp", maxFaces);
 	scn.addShape("./res/objs/monkey3.obj", "./res/textures/box0.bmp", maxFaces);
+	scn.addShape("./res/objs/monkey3.obj", "./res/textures/box0.bmp", 0);
 	scn.addShader("./res/shaders/basicShader");
 	scn.addShader("./res/shaders/pickingShader");
 

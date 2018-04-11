@@ -46,6 +46,7 @@ public:
     std::list<OBJIndex> OBJIndices;
     std::vector<glm::vec3> vertices;
 	std::vector<glm::mat4> Q;
+	std::vector<int> vpointers;
 	std::vector<Edge> edges;
 	std::multimap<OBJIndex, OBJIndex> neighbors;
     std::vector<glm::vec2> uvs;
@@ -73,7 +74,7 @@ private:
 	void RemoveDuplicates();
 	void UpdateNeighborsError(OBJIndex &v);
 	void InitializeSimplification();
-	void CalculateEdgeError(Edge& e);
+	double CalculateEdgeError(Edge& e);
 };
 
 #endif // OBJ_LOADER_H_INCLUDED

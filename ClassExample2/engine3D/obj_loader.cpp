@@ -224,19 +224,28 @@ void OBJModel::Simplify(int maxFaces)
 
 	InitializeSimplification();
 
-	while(maxFaces < (OBJIndices.size() / 3)) // TODO: OBJIndices.size() == total number of faces?
+	make_heap(edges.begin(), edges.end());
+	int removed = 0;
+	while((OBJIndices.size() / 3) > maxFaces)
 	{
-		make_heap(edges.begin(), edges.end());
 		auto e = edges.front();
-		pop_heap(edges.begin(), edges.end());
+		pop_heap(edges.begin(), edges.end() - removed);
+		removed++;
+		auto next = edges.front();
+		if(CalculateEdgeError(e) > CalculateEdgeError(next))
+		{
+			push_heap(edges.begin(), edges.end() - removed); // re-push e
+			e = next;
+		}
 
 		auto v = (vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f;
 		vertices.push_back(v);
 		Q.push_back(Q[e.vertex1->vertexIndex] + Q[e.vertex2->vertexIndex]);
 		
 		RemoveEdge(e, vertices.size() - 1);
-		
-		UpdateNeighborsError(*e.vertex1);
+		RemoveDuplicates();
+
+		//UpdateNeighborsError(*e.vertex1);
 	}
 }
 
@@ -266,15 +275,16 @@ void OBJModel::RemoveEdge(Edge &e, int newVertex)
 		{
 			continue;
 		}
-		for(auto dup : edges)
+
+		int oldV1 = v1.vertexIndex;
+		int oldV2 = v2.vertexIndex;
+		for(OBJIndex o : OBJIndices)
 		{
-			if(*dup.vertex1 == *dup.vertex2)
+			if(o.vertexIndex == oldV1 || o.vertexIndex == oldV2)
 			{
-				
+				o.vertexIndex = newVertex;
 			}
 		}
-		v1.vertexIndex = newVertex;
-		v2.vertexIndex = newVertex;
 
 		OBJIndices.erase(f1);
 		OBJIndices.erase(f2);
@@ -282,9 +292,18 @@ void OBJModel::RemoveEdge(Edge &e, int newVertex)
 	}
 }
 
+void OBJModel::RemoveDuplicates()
+{
+	std::sort(edges.begin(), edges.end());
+	for (auto it = edges.begin(); it != edges.end();)
+	{
+		break;
+	}
+}
+
 void OBJModel::UpdateNeighborsError(OBJIndex &v)
 {
-	auto range = neighbors.equal_range(v);
+	/*auto range = neighbors.equal_range(v);
 	for (auto it = range.first; it != range.second; it++)
 	{
 		// Calculate Q
@@ -293,7 +312,7 @@ void OBJModel::UpdateNeighborsError(OBJIndex &v)
 	for(auto e : edges)
 	{
 		CalculateEdgeError(e);
-	}
+	}*/
 }
 
 void OBJModel::InitializeSimplification()
@@ -337,20 +356,17 @@ void OBJModel::InitializeSimplification()
 
 	for (auto e : edges)
 	{
-		CalculateEdgeError(e);
+		e.error = CalculateEdgeError(e);
 	}
 }
 
-void OBJModel::CalculateEdgeError(Edge& e)
+double OBJModel::CalculateEdgeError(Edge& e)
 {
-	auto vIndx1 = e.vertex1->vertexIndex;
-	auto vIndx2 = e.vertex2->vertexIndex;
-	auto v1 = vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex];
 	auto v = glm::vec4((vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f, 1);
 	auto q1 = Q[e.vertex1->vertexIndex];
 	auto q2 = Q[e.vertex2->vertexIndex];
 	auto mv = (q1 + q2) * v;
-	e.error = glm::dot(v, mv);
+	return glm::dot(v, mv);
 }
 
 unsigned int OBJModel::FindLastVertexIndex(const std::vector<OBJIndex*>& indexLookup, const OBJIndex* currentIndex, const IndexedModel& result)
