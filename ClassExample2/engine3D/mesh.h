@@ -33,7 +33,7 @@ class Mesh
 {
 public:
 	
-    Mesh(const std::string& fileName);
+    Mesh(const std::string& fileName, int maxFaces);
 	Mesh(Vertex* vertices, unsigned int numVertices, unsigned int* indices, unsigned int numIndices);
 
 	void Draw(int mode);

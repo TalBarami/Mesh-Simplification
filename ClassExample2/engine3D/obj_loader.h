@@ -22,8 +22,8 @@ struct OBJIndex
 
 struct Edge
 {
-	OBJIndex* vertex1;
-	OBJIndex* vertex2;
+	std::list<OBJIndex>::iterator vertex1;
+	std::list<OBJIndex>::iterator vertex2;
 	double error;
 
 	bool operator<(const Edge& r) const { return error > r.error; }
@@ -39,6 +39,7 @@ struct IndexedModel
     std::vector<unsigned int> indices;
 };
 
+
 class OBJModel
 {
 public:
@@ -46,7 +47,7 @@ public:
     std::vector<glm::vec3> vertices;
 	std::vector<glm::mat4> Q;
 	std::vector<Edge> edges;
-	std::map<OBJIndex, std::list<OBJIndex>> neighbors;
+	std::multimap<OBJIndex, OBJIndex> neighbors;
     std::vector<glm::vec2> uvs;
     std::vector<glm::vec3> normals;
 	std::vector<glm::vec3> colors;
@@ -56,18 +57,21 @@ public:
     
     OBJModel(const std::string& fileName);
     
-    IndexedModel ToIndexedModel();
+    IndexedModel ToIndexedModel(int maxFaces);
 private:
     unsigned int FindLastVertexIndex(const std::vector<OBJIndex*>& indexLookup, const OBJIndex* currentIndex, const IndexedModel& result);
     void CreateOBJFace(const std::string& line);
 	void AddOBJFace(OBJIndex& v1, OBJIndex& v2, OBJIndex& v3);
-	Edge CreateEdge(OBJIndex& v1, OBJIndex& v2);
+	Edge CreateEdge(std::list<OBJIndex>::iterator& v1, std::list<OBJIndex>::iterator& v2);
     glm::vec2 ParseOBJVec2(const std::string& line);
     glm::vec3 ParseOBJVec3(const std::string& line);
     OBJIndex ParseOBJIndex(const std::string& token, bool* hasUVs, bool* hasNormals);
 	void CalcNormals();
 
 	void Simplify(int maxFaces);
+	void RemoveEdge(Edge& e, int newVertex);
+	void RemoveDuplicates();
+	void UpdateNeighborsError(OBJIndex &v);
 	void InitializeSimplification();
 	void CalculateEdgeError(Edge& e);
 };

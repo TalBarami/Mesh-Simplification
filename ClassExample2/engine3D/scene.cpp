@@ -44,14 +44,14 @@ Scene::Scene(glm::vec3 position,float angle,float hwRelation,float near, float f
 		shapes.push_back(new Shape(*shapes[type]));
 	}
 
-	void Scene::addShape(const std::string& fileName)
+	void Scene::addShape(const std::string& fileName, int maxFaces)
 	{
-		shapes.push_back(new Shape(fileName));
+		shapes.push_back(new Shape(fileName, maxFaces));
 	}
 
-	void Scene::addShape(const std::string& fileName,const std::string& textureFileName)
+	void Scene::addShape(const std::string& fileName,const std::string& textureFileName, int maxFaces)
 	{
-		shapes.push_back(new Shape(fileName,textureFileName));
+		shapes.push_back(new Shape(fileName,textureFileName, maxFaces));
 	}
 
 	void Scene::addShape(Vertex* vertices, unsigned int numVertices, unsigned int* indices, unsigned int numIndices)

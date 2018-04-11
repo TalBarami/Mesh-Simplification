@@ -7,9 +7,9 @@
 #include <iostream>
 #include <stdlib.h>
 
-Mesh::Mesh(const std::string& fileName)
+Mesh::Mesh(const std::string& fileName, int maxFaces)
 {
-	IndexedModel model = OBJModel(fileName).ToIndexedModel() ;
+	IndexedModel model = OBJModel(fileName).ToIndexedModel(maxFaces) ;
 	InitMesh(model);
 }
 

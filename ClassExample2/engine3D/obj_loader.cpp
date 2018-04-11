@@ -63,6 +63,112 @@ OBJModel::OBJModel(const std::string& fileName)
 
 }
 
+IndexedModel OBJModel::ToIndexedModel(int maxFaces)
+{
+	if (maxFaces > 0 && maxFaces < (OBJIndices.size() / 3)) {
+		Simplify(maxFaces);
+	}
+	IndexedModel result;
+	IndexedModel normalModel;
+	IndexedModel simpleResult;
+
+	unsigned int numIndices = OBJIndices.size();
+	std::vector<OBJIndex*> indexLookup;
+
+
+	if (!hasNormals)
+	{
+		for (int i = 0; i < vertices.size(); i++)
+		{
+			normals.push_back(glm::vec3(0, 0, 0));
+
+		}
+		hasNormals = true;
+	}
+	CalcNormals();
+
+
+	//for(int i = 0; i < vertices.size()/2; i++)
+	//{
+	//	 addNewVertex();
+	//}
+
+
+
+	for (OBJIndex &it1 : OBJIndices)
+	{
+		indexLookup.push_back(&it1);
+	}
+	std::sort(indexLookup.begin(), indexLookup.end(), CompareOBJIndexPtr);
+
+	std::map<OBJIndex, unsigned int> normalModelIndexMap;
+	std::map<unsigned int, unsigned int> indexMap;
+
+	for (OBJIndex &it1 : OBJIndices)
+	{
+		OBJIndex* currentIndex = &it1;
+
+		glm::vec3 currentPosition = vertices[currentIndex->vertexIndex];
+		glm::vec2 currentTexCoord;
+		glm::vec3 currentNormal;
+		glm::vec3 currentColor;
+
+		if (hasUVs)
+			currentTexCoord = uvs[currentIndex->uvIndex];
+		else
+			currentTexCoord = glm::vec2(0, 0);
+
+		//if(hasNormals)
+		//{   
+		currentNormal = normals[currentIndex->normalIndex];
+		currentColor = normals[currentIndex->normalIndex];
+		//}
+		//else
+		//{
+		//    currentNormal = glm::vec3(0,0,0);
+		//	currentColor =  glm::vec3(sqrt(1.0/3.0),sqrt(1.0/3.0),sqrt(1.0/3.0));
+		//}
+		unsigned int normalModelIndex;
+		unsigned int resultModelIndex;
+
+		//Create model to properly generate normals on
+		std::map<OBJIndex, unsigned int>::iterator it = normalModelIndexMap.find(*currentIndex);
+		if (it == normalModelIndexMap.end())
+		{
+			normalModelIndex = normalModel.positions.size();
+
+			normalModelIndexMap.insert(std::pair<OBJIndex, unsigned int>(*currentIndex, normalModelIndex));
+			normalModel.positions.push_back(currentPosition);
+			normalModel.texCoords.push_back(currentTexCoord);
+			normalModel.normals.push_back(currentNormal);
+			normalModel.colors.push_back(currentColor);
+		}
+		else
+			normalModelIndex = it->second;
+
+		//Create model which properly separates texture coordinates
+		unsigned int previousVertexLocation = FindLastVertexIndex(indexLookup, currentIndex, result);
+
+		if (previousVertexLocation == (unsigned int)-1)
+		{
+			resultModelIndex = result.positions.size();
+
+			result.positions.push_back(currentPosition);
+			result.texCoords.push_back(currentTexCoord);
+			result.normals.push_back(currentNormal);
+			result.colors.push_back(currentColor);
+		}
+		else
+			resultModelIndex = previousVertexLocation;
+
+		normalModel.indices.push_back(normalModelIndex);
+		result.indices.push_back(resultModelIndex);
+		indexMap.insert(std::pair<unsigned int, unsigned int>(resultModelIndex, normalModelIndex));
+	}
+
+	return result;
+};
+
 void OBJModel::CalcNormals()
 {
 	float *count = new float[normals.size()];
@@ -115,25 +221,89 @@ void OBJModel::Simplify(int maxFaces)
 {
 	using namespace glm;
 	using namespace std;
-	for (auto i = 0; i < vertices.size(); i++)
-	{
-		Q.push_back(mat4(0));
-	}
 
 	InitializeSimplification();
 
-	// Suggestion:
-	/* 
-		- Make heap
-		- Extract min
+	while(maxFaces < (OBJIndices.size() / 3)) // TODO: OBJIndices.size() == total number of faces?
+	{
+		make_heap(edges.begin(), edges.end());
+		auto e = edges.front();
+		pop_heap(edges.begin(), edges.end());
 
+		auto v = (vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f;
+		vertices.push_back(v);
+		Q.push_back(Q[e.vertex1->vertexIndex] + Q[e.vertex2->vertexIndex]);
+		
+		RemoveEdge(e, vertices.size() - 1);
+		
+		UpdateNeighborsError(*e.vertex1);
+	}
+}
+
+void OBJModel::RemoveEdge(Edge &e, int newVertex)
+{
+	auto v1 = *e.vertex1;
+	auto v2 = *e.vertex2;
 	
-	*/
+	std::vector<OBJIndex> face;
+	for (auto it = OBJIndices.begin(); it != OBJIndices.end();)
+	{
+		auto f1 = it;
+		++it;
+		auto f2 = it;
+		++it;
+		auto f3 = it;
+		++it;
+
+		face.push_back(*f1);
+		face.push_back(*f2);
+		face.push_back(*f3);
+
+		auto i1 = std::find(face.begin(), face.end(), v1);
+		auto i2 = std::find(face.begin(), face.end(), v2);
+
+		if (i1 == face.end() || i2 == face.end())
+		{
+			continue;
+		}
+		for(auto dup : edges)
+		{
+			if(*dup.vertex1 == *dup.vertex2)
+			{
+				
+			}
+		}
+		v1.vertexIndex = newVertex;
+		v2.vertexIndex = newVertex;
+
+		OBJIndices.erase(f1);
+		OBJIndices.erase(f2);
+		OBJIndices.erase(f3);
+	}
+}
+
+void OBJModel::UpdateNeighborsError(OBJIndex &v)
+{
+	auto range = neighbors.equal_range(v);
+	for (auto it = range.first; it != range.second; it++)
+	{
+		// Calculate Q
+	}
+
+	for(auto e : edges)
+	{
+		CalculateEdgeError(e);
+	}
 }
 
 void OBJModel::InitializeSimplification()
 {
 	using namespace glm;
+	for (auto v : vertices)
+	{
+		Q.push_back(mat4(0));
+	}
+
 	for (auto it = OBJIndices.begin(); it != OBJIndices.end(); ++it)
 	{
 		auto i0 = (*it).vertexIndex;
@@ -152,7 +322,7 @@ void OBJModel::InitializeSimplification()
 		auto b = normal.y;
 		auto c = normal.z;
 		auto d = dot(normal, v0);
-		
+
 		auto kp = mat4(
 			a * a, a * b, a * c, a * d,
 			a * b, b * b, b * c, b * d,
@@ -173,116 +343,15 @@ void OBJModel::InitializeSimplification()
 
 void OBJModel::CalculateEdgeError(Edge& e)
 {
+	auto vIndx1 = e.vertex1->vertexIndex;
+	auto vIndx2 = e.vertex2->vertexIndex;
+	auto v1 = vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex];
 	auto v = glm::vec4((vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f, 1);
 	auto q1 = Q[e.vertex1->vertexIndex];
 	auto q2 = Q[e.vertex2->vertexIndex];
 	auto mv = (q1 + q2) * v;
 	e.error = glm::dot(v, mv);
 }
-
-
-IndexedModel OBJModel::ToIndexedModel()
-{
-    IndexedModel result;
-    IndexedModel normalModel;
-	IndexedModel simpleResult;
-    
-    unsigned int numIndices = OBJIndices.size();
-    std::vector<OBJIndex*> indexLookup;
-
-    
-	 if(!hasNormals)
-	 {
-		 for (int i = 0; i < vertices.size(); i++)
-		 {
-			normals.push_back(glm::vec3(0,0,0));
-			
-		 }
-		 hasNormals = true;
-	 }
-	 CalcNormals();
-
-	
-	//for(int i = 0; i < vertices.size()/2; i++)
-	//{
-	//	 addNewVertex();
-	//}
-
-
-
- 	 for(OBJIndex &it1 : OBJIndices)
-	 {
-        indexLookup.push_back(&it1);
-	 }
-    std::sort(indexLookup.begin(), indexLookup.end(), CompareOBJIndexPtr);
-    
-    std::map<OBJIndex, unsigned int> normalModelIndexMap;
-    std::map<unsigned int, unsigned int> indexMap;
-
-    for(OBJIndex &it1 : OBJIndices)
-    {
-        OBJIndex* currentIndex = &it1;
-        
-        glm::vec3 currentPosition = vertices[currentIndex->vertexIndex];
-        glm::vec2 currentTexCoord;
-        glm::vec3 currentNormal;
-        glm::vec3 currentColor;
-
-        if(hasUVs)
-            currentTexCoord = uvs[currentIndex->uvIndex];
-        else
-            currentTexCoord = glm::vec2(0,0);
-            
-        //if(hasNormals)
-        //{   
-			currentNormal = normals[currentIndex->normalIndex];
-			currentColor = normals[currentIndex->normalIndex];
-		//}
-        //else
-		//{
-        //    currentNormal = glm::vec3(0,0,0);
-		//	currentColor =  glm::vec3(sqrt(1.0/3.0),sqrt(1.0/3.0),sqrt(1.0/3.0));
-		//}
-        unsigned int normalModelIndex;
-        unsigned int resultModelIndex;
-        
-        //Create model to properly generate normals on
-        std::map<OBJIndex, unsigned int>::iterator it = normalModelIndexMap.find(*currentIndex);
-        if(it == normalModelIndexMap.end())
-        {
-            normalModelIndex = normalModel.positions.size();
-        
-            normalModelIndexMap.insert(std::pair<OBJIndex, unsigned int>(*currentIndex, normalModelIndex));
-            normalModel.positions.push_back(currentPosition);
-            normalModel.texCoords.push_back(currentTexCoord);
-            normalModel.normals.push_back(currentNormal);
-			normalModel.colors.push_back(currentColor);
-        }
-        else
-            normalModelIndex = it->second;
-        
-        //Create model which properly separates texture coordinates
-        unsigned int previousVertexLocation = FindLastVertexIndex(indexLookup, currentIndex, result);
-        
-        if(previousVertexLocation == (unsigned int)-1)
-        {
-            resultModelIndex = result.positions.size();
-        
-            result.positions.push_back(currentPosition);
-            result.texCoords.push_back(currentTexCoord);
-            result.normals.push_back(currentNormal);
-			result.colors.push_back(currentColor);
-        }
-        else
-            resultModelIndex = previousVertexLocation;
-        
-        normalModel.indices.push_back(normalModelIndex);
-        result.indices.push_back(resultModelIndex);
-        indexMap.insert(std::pair<unsigned int, unsigned int>(resultModelIndex, normalModelIndex));
-    }
-
-    return result;
-};
 
 unsigned int OBJModel::FindLastVertexIndex(const std::vector<OBJIndex*>& indexLookup, const OBJIndex* currentIndex, const IndexedModel& result)
 {
@@ -381,12 +450,13 @@ void OBJModel::CreateOBJFace(const std::string& line)
 	OBJIndex v1 = ParseOBJIndex(tokens[1], &this->hasUVs, &this->hasNormals);
 	OBJIndex v2 = ParseOBJIndex(tokens[2], &this->hasUVs, &this->hasNormals);
 	OBJIndex v3 = ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals);
-
 	AddOBJFace(v1, v2, v3);
 
 	if ((int)tokens.size() > 4)//triangulation
 	{
-		OBJIndex v4 = ParseOBJIndex(tokens[4], &this->hasUVs, &this->hasNormals);
+		v1 = ParseOBJIndex(tokens[1], &this->hasUVs, &this->hasNormals);
+		v3 = ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals);
+		auto v4 = ParseOBJIndex(tokens[4], &this->hasUVs, &this->hasNormals);
 		AddOBJFace(v1, v3, v4);
 	}
 }
@@ -397,24 +467,51 @@ void OBJModel::AddOBJFace(OBJIndex& v1, OBJIndex& v2, OBJIndex& v3)
 	OBJIndices.push_back(v2);
 	OBJIndices.push_back(v3);
 
-	edges.push_back(CreateEdge(v1, v2));
-	edges.push_back(CreateEdge(v2, v3));
-	edges.push_back(CreateEdge(v3, v1));
+	auto it = OBJIndices.end();
+	std::advance(it, -3);
+
+	auto i1 = it++;
+	auto i2 = it++;
+	auto i3 = it++;
+
+	edges.push_back(CreateEdge(i1, i2));
+	edges.push_back(CreateEdge(i2, i3));
+	edges.push_back(CreateEdge(i3, i1));
 }
 
-Edge OBJModel::CreateEdge(OBJIndex& v1, OBJIndex& v2)
+Edge OBJModel::CreateEdge(std::list<OBJIndex>::iterator& v1, std::list<OBJIndex>::iterator& v2)
 {
 	Edge e;
 
-	e.vertex1 = &v1;
-	e.vertex2 = &v2;
-	e.error = 0; // TODO: Calculate error
+	e.vertex1 = v1;
+	e.vertex2 = v2;
+	e.error = 0;
 
-	if (std::find(neighbors[v1].begin(), neighbors[v1].end(), v2) == neighbors[v1].end())
+
+	auto range = neighbors.equal_range(*v1);
+	auto found = false;
+	for (auto it = range.first; it != range.second; it++)
+	{
+		if(it->second == *v2)
+		{
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		neighbors.insert(std::pair<OBJIndex, OBJIndex>(*v1, *v2));
+		neighbors.insert(std::pair<OBJIndex, OBJIndex>(*v2, *v1));
+	}
+
+	/*if (std::find(neighbors[v1].begin(), neighbors[v1].end(), v2) == neighbors[v1].end())
 	{
 		neighbors[v1].push_back(v2);
 		neighbors[v2].push_back(v1);
-	}
+
+		neighbors.insert(std::pair<OBJIndex, OBJIndex>(v1, v2));
+		neighbors.insert(std::pair<OBJIndex, OBJIndex>(v2, v1));
+	}*/
 
 	return e;
 }

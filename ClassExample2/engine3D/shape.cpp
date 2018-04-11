@@ -10,14 +10,14 @@ Shape::Shape(const Shape& shape)
 	tex = shape.tex;
 	isCopy = true;
 }
-Shape::Shape(const std::string& fileName){
-	mesh = new Mesh(fileName);
+Shape::Shape(const std::string& fileName, int maxFaces){
+	mesh = new Mesh(fileName, maxFaces);
 	tex = 0;
 	isCopy = false;
 }
 
-Shape::Shape(const std::string& fileName,const std::string& textureFileName){
-	mesh = new Mesh(fileName); 
+Shape::Shape(const std::string& fileName,const std::string& textureFileName, int maxFaces){
+	mesh = new Mesh(fileName, maxFaces); 
 	tex = new Texture(textureFileName);
 	isCopy = false;
 }
