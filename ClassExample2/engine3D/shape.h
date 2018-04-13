@@ -11,12 +11,13 @@ class Shape : public MovableGLM
 	LineMesh *lineMesh;
 	Texture *tex;
 	bool isCopy;
-	unsigned int maxFaces;
 public:
 	enum{triangles,lines};
 	Shape(const Shape& shape);
+	Shape(const std::string& fileName);
 	Shape(const std::string& fileName, int maxFaces);
-	Shape(const std::string& fileName,const std::string& textureFileName, int maxFaces);
+	Shape(const std::string& fileName,const std::string& textureFileName);
+	Shape(const std::string& fileName, const std::string& textureFileName, int maxFaces);
 	Shape(Vertex* vertices, unsigned int numVertices, unsigned int* indices, unsigned int numIndices);
 	Shape(LineVertex* vertices, unsigned int numVertices, unsigned int* indices, unsigned int numIndices);
 	Shape(Vertex* vertices, unsigned int numVertices, unsigned int* indices, unsigned int numIndices, const std::string& textureFileName);

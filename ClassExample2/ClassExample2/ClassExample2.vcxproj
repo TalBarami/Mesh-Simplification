@@ -13,7 +13,6 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{9AC22C06-C4D7-41EA-B354-904A99D659CC}</ProjectGuid>
     <RootNamespace>ClassExample2</RootNamespace>
-    <ProjectName>MeshSimplification</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

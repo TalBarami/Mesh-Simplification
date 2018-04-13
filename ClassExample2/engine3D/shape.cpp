@@ -10,14 +10,28 @@ Shape::Shape(const Shape& shape)
 	tex = shape.tex;
 	isCopy = true;
 }
-Shape::Shape(const std::string& fileName, int maxFaces){
+Shape::Shape(const std::string& fileName){
+	mesh = new Mesh(fileName);
+	tex = 0;
+	isCopy = false;
+}
+
+Shape::Shape(const std::string& fileName, int maxFaces)
+{
 	mesh = new Mesh(fileName, maxFaces);
 	tex = 0;
 	isCopy = false;
 }
 
-Shape::Shape(const std::string& fileName,const std::string& textureFileName, int maxFaces){
-	mesh = new Mesh(fileName, maxFaces); 
+Shape::Shape(const std::string& fileName,const std::string& textureFileName){
+	mesh = new Mesh(fileName); 
+	tex = new Texture(textureFileName);
+	isCopy = false;
+}
+
+Shape::Shape(const std::string& fileName, const std::string& textureFileName, int maxFaces)
+{
+	mesh = new Mesh(fileName, maxFaces);
 	tex = new Texture(textureFileName);
 	isCopy = false;
 }
@@ -63,6 +77,7 @@ void Shape::addLineMesh(LineVertex* vertices, unsigned int numVertices,unsigned 
 
 void Shape::draw(int mode)
 {
+	myRotate(0.01, glm::vec3(0, 1, 0));
 	//transformations
 	if(tex)
 		tex->Bind();

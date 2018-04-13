@@ -68,106 +68,272 @@ IndexedModel OBJModel::ToIndexedModel(int maxFaces)
 	if (maxFaces > 0 && maxFaces < (OBJIndices.size() / 3)) {
 		Simplify(maxFaces);
 	}
-	IndexedModel result;
-	IndexedModel normalModel;
+
+    IndexedModel result;
+    IndexedModel normalModel;
 	IndexedModel simpleResult;
+    
+    unsigned int numIndices = OBJIndices.size();
+    std::vector<OBJIndex*> indexLookup;
 
-	unsigned int numIndices = OBJIndices.size();
-	std::vector<OBJIndex*> indexLookup;
+    
+	 if(!hasNormals)
+	 {
+		 for (int i = 0; i < vertices.size(); i++)
+		 {
+			normals.push_back(glm::vec3(0,0,0));
+			
+		 }
+		 hasNormals = true;
+	 }
+	 CalcNormals();
 
+ 	 for(OBJIndex &it1 : OBJIndices)
+	 {
+        indexLookup.push_back(&it1);
+	 }
+    std::sort(indexLookup.begin(), indexLookup.end(), CompareOBJIndexPtr);
+    
+    std::map<OBJIndex, unsigned int> normalModelIndexMap;
+    std::map<unsigned int, unsigned int> indexMap;
 
-	if (!hasNormals)
-	{
-		for (int i = 0; i < vertices.size(); i++)
-		{
-			normals.push_back(glm::vec3(0, 0, 0));
+    for(OBJIndex &it1 : OBJIndices)
+    {
+        OBJIndex* currentIndex = &it1;
+        
+        glm::vec3 currentPosition = vertices[currentIndex->vertexIndex];
+        glm::vec2 currentTexCoord;
+        glm::vec3 currentNormal;
+        glm::vec3 currentColor;
 
-		}
-		hasNormals = true;
-	}
-	CalcNormals();
-
-
-	//for(int i = 0; i < vertices.size()/2; i++)
-	//{
-	//	 addNewVertex();
-	//}
-
-
-
-	for (OBJIndex &it1 : OBJIndices)
-	{
-		indexLookup.push_back(&it1);
-	}
-	std::sort(indexLookup.begin(), indexLookup.end(), CompareOBJIndexPtr);
-
-	std::map<OBJIndex, unsigned int> normalModelIndexMap;
-	std::map<unsigned int, unsigned int> indexMap;
-
-	for (OBJIndex &it1 : OBJIndices)
-	{
-		OBJIndex* currentIndex = &it1;
-
-		glm::vec3 currentPosition = vertices[currentIndex->vertexIndex];
-		glm::vec2 currentTexCoord;
-		glm::vec3 currentNormal;
-		glm::vec3 currentColor;
-
-		if (hasUVs)
-			currentTexCoord = uvs[currentIndex->uvIndex];
-		else
-			currentTexCoord = glm::vec2(0, 0);
-
-		//if(hasNormals)
-		//{   
-		currentNormal = normals[currentIndex->normalIndex];
-		currentColor = normals[currentIndex->normalIndex];
+        if(hasUVs)
+            currentTexCoord = uvs[currentIndex->uvIndex];
+        else
+            currentTexCoord = glm::vec2(0,0);
+            
+        //if(hasNormals)
+        //{   
+			currentNormal = normals[currentIndex->normalIndex];
+			currentColor = normals[currentIndex->normalIndex];
 		//}
-		//else
+        //else
 		//{
-		//    currentNormal = glm::vec3(0,0,0);
+        //    currentNormal = glm::vec3(0,0,0);
 		//	currentColor =  glm::vec3(sqrt(1.0/3.0),sqrt(1.0/3.0),sqrt(1.0/3.0));
 		//}
-		unsigned int normalModelIndex;
-		unsigned int resultModelIndex;
-
-		//Create model to properly generate normals on
-		std::map<OBJIndex, unsigned int>::iterator it = normalModelIndexMap.find(*currentIndex);
-		if (it == normalModelIndexMap.end())
-		{
-			normalModelIndex = normalModel.positions.size();
-
-			normalModelIndexMap.insert(std::pair<OBJIndex, unsigned int>(*currentIndex, normalModelIndex));
-			normalModel.positions.push_back(currentPosition);
-			normalModel.texCoords.push_back(currentTexCoord);
-			normalModel.normals.push_back(currentNormal);
+        unsigned int normalModelIndex;
+        unsigned int resultModelIndex;
+        
+        //Create model to properly generate normals on
+        std::map<OBJIndex, unsigned int>::iterator it = normalModelIndexMap.find(*currentIndex);
+        if(it == normalModelIndexMap.end())
+        {
+            normalModelIndex = normalModel.positions.size();
+        
+            normalModelIndexMap.insert(std::pair<OBJIndex, unsigned int>(*currentIndex, normalModelIndex));
+            normalModel.positions.push_back(currentPosition);
+            normalModel.texCoords.push_back(currentTexCoord);
+            normalModel.normals.push_back(currentNormal);
 			normalModel.colors.push_back(currentColor);
-		}
-		else
-			normalModelIndex = it->second;
-
-		//Create model which properly separates texture coordinates
-		unsigned int previousVertexLocation = FindLastVertexIndex(indexLookup, currentIndex, result);
-
-		if (previousVertexLocation == (unsigned int)-1)
-		{
-			resultModelIndex = result.positions.size();
-
-			result.positions.push_back(currentPosition);
-			result.texCoords.push_back(currentTexCoord);
-			result.normals.push_back(currentNormal);
+        }
+        else
+            normalModelIndex = it->second;
+        
+        //Create model which properly separates texture coordinates
+        unsigned int previousVertexLocation = FindLastVertexIndex(indexLookup, currentIndex, result);
+        
+        if(previousVertexLocation == (unsigned int)-1)
+        {
+            resultModelIndex = result.positions.size();
+        
+            result.positions.push_back(currentPosition);
+            result.texCoords.push_back(currentTexCoord);
+            result.normals.push_back(currentNormal);
 			result.colors.push_back(currentColor);
-		}
-		else
-			resultModelIndex = previousVertexLocation;
+        }
+        else
+            resultModelIndex = previousVertexLocation;
+        
+        normalModel.indices.push_back(normalModelIndex);
+        result.indices.push_back(resultModelIndex);
+        indexMap.insert(std::pair<unsigned int, unsigned int>(resultModelIndex, normalModelIndex));
+    }
 
-		normalModel.indices.push_back(normalModelIndex);
-		result.indices.push_back(resultModelIndex);
-		indexMap.insert(std::pair<unsigned int, unsigned int>(resultModelIndex, normalModelIndex));
+    return result;
+};
+
+void OBJModel::Simplify(int maxFaces)
+{
+	using namespace std;
+
+	InitializeEdges();
+	InitializeVerticesError();
+	InitializeEdgesError();
+
+	//auto currentFaces = OBJIndices.size() / 3;
+	while(maxFaces < OBJIndices.size() / 3)
+	{
+		make_heap(edges.begin(), edges.end(), HeapComparator());
+		auto e = edges.front();
+		auto v1 = e.v1.vertexIndex;
+		auto v2 = e.v2.vertexIndex;
+		Q[v1] = e.q;
+		vertices[v1] = e.position;
+		pop_heap(edges.begin(), edges.end(), HeapComparator());
+		edges.pop_back();
+
+		RemoveFaces(v1, v2);
+		//currentFaces -= 2;
+		UpdateEdges(v1, v2);
+	}
+}
+
+void OBJModel::InitializeEdges()
+{
+	for (auto it = OBJIndices.begin(); it != OBJIndices.end();)
+	{
+		auto v1 = *it;
+		++it;
+		auto v2 = *it;
+		++it;
+		auto v3 = *it;
+		++it;
+
+		CreateEdge(v1, v2);
+		CreateEdge(v2, v3);
+		CreateEdge(v3, v1);
+	}
+}
+
+void OBJModel::CreateEdge(OBJIndex& v1, OBJIndex& v2)
+{
+	for (auto it = edges.begin(); it != edges.end(); it++)
+	{
+		auto e = (*it);
+		if((e.v1 == v1 && e.v2 == v2) || (e.v1 == v2 && e.v2 == v1))
+		{
+			return;
+		}
+	}
+	Edge e;
+	e.v1 = v1;
+	e.v2 = v2;
+	edges.push_back(e);
+}
+
+void OBJModel::InitializeVerticesError()
+{
+	using namespace glm;
+
+	for(auto v : vertices)
+	{
+		Q.push_back(mat4(0));
 	}
 
-	return result;
-};
+	mat4 kp;
+	for (auto it = OBJIndices.begin(); it != OBJIndices.end(); ++it)
+	{
+		auto i1 = (*it).vertexIndex;
+		auto v1 = vertices[i1];
+		++it;
+		auto i2 = (*it).vertexIndex;
+		auto v2 = vertices[i2];
+		++it;
+		auto i3 = (*it).vertexIndex;
+		auto v3 = vertices[i3];
+
+		auto normal = normalize(cross(v3 - v1, v2 - v1));
+		auto v = vec4(normal, -dot(normal, v1));
+		kp = mat4(0);
+		for (auto i = 0; i < 4; i++) {
+			for (auto j = 0; j < 4; j++) {
+				kp[i][j] += v[i] * v[j];
+			}
+		}
+
+		Q[i1] += kp;
+		Q[i2] += kp;
+		Q[i3] += kp;
+	}
+}
+
+void OBJModel::InitializeEdgesError()
+{
+	for (auto i = 0; i < edges.size(); i++)
+	{
+		CalculateEdgeError(i);
+	}
+}
+
+void OBJModel::CalculateEdgeError(int edge)
+{
+	auto position = (vertices[edges[edge].v1.vertexIndex] + vertices[edges[edge].v2.vertexIndex]) / 2.0f;
+	auto v = glm::vec4(position, 1.0f);
+	auto q1 = Q[edges[edge].v1.vertexIndex];
+	auto q2 = Q[edges[edge].v2.vertexIndex];
+	auto mv = (q1 + q2) * v;
+	edges[edge].position = position;
+	edges[edge].q = q1 + q2;
+	edges[edge].err = glm::dot(v, mv);
+}
+
+void OBJModel::RemoveFaces(int v1, int v2)
+{
+	for (auto it = OBJIndices.begin(); it != OBJIndices.end();)
+	{
+		auto f1 = *it;
+		it++;
+		auto f2 = *it;
+		it++;
+		auto f3 = *it;
+		it++;
+		
+
+		if(FaceContains(v1, f1, f2, f3) && FaceContains(v2, f1, f2, f3))
+		{
+			for (auto e = 0; e < edges.size(); e++)
+			{
+				if (FaceContains(edges[e].v1.vertexIndex, f1, f2, f3) && FaceContains(edges[e].v2.vertexIndex, f1, f2, f3) &&
+					((edges[e].v1.vertexIndex != v1 && edges[e].v2.vertexIndex != v1) || (edges[e].v1.vertexIndex == v1 && edges[e].v2.vertexIndex == v1))) {
+						edges.erase(edges.begin() + e);
+						e--;
+				}
+			}
+			std::advance(it, -3);
+			OBJIndices.erase(it++);
+			OBJIndices.erase(it++);
+			OBJIndices.erase(it++);
+		}
+	}
+
+	for (auto it = OBJIndices.begin(); it != OBJIndices.end(); it++) {
+		if (it->vertexIndex == v2)
+		{
+			it->vertexIndex = v1;
+		}
+	}
+}
+
+bool OBJModel::FaceContains(int vIndex, OBJIndex &f1, OBJIndex &f2, OBJIndex &f3)
+{
+	return vIndex == f1.vertexIndex || vIndex == f2.vertexIndex || vIndex == f3.vertexIndex;
+}
+
+void OBJModel::UpdateEdges(int v1, int v2)
+{
+	for (auto i = 0; i < edges.size(); i++) {
+		if (edges[i].v1.vertexIndex == v2) {
+			edges[i].v1.vertexIndex = v1;
+		}
+		if (edges[i].v2.vertexIndex == v2) {
+			edges[i].v2.vertexIndex = v1;
+		}
+
+		if (edges[i].v1.vertexIndex == v1 || edges[i].v2.vertexIndex == v1) {
+			CalculateEdgeError(i);
+		}
+	}
+}
 
 void OBJModel::CalcNormals()
 {
@@ -217,319 +383,115 @@ void OBJModel::CalcNormals()
 	delete[] count;
 }
 
-void OBJModel::Simplify(int maxFaces)
-{
-	using namespace glm;
-	using namespace std;
-
-	InitializeSimplification();
-
-	make_heap(edges.begin(), edges.end());
-	int removed = 0;
-	while((OBJIndices.size() / 3) > maxFaces)
-	{
-		auto e = edges.front();
-		pop_heap(edges.begin(), edges.end() - removed);
-		removed++;
-		auto next = edges.front();
-		if(CalculateEdgeError(e) > CalculateEdgeError(next))
-		{
-			push_heap(edges.begin(), edges.end() - removed); // re-push e
-			e = next;
-		}
-
-		auto v = (vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f;
-		vertices.push_back(v);
-		Q.push_back(Q[e.vertex1->vertexIndex] + Q[e.vertex2->vertexIndex]);
-		
-		RemoveEdge(e, vertices.size() - 1);
-		RemoveDuplicates();
-
-		//UpdateNeighborsError(*e.vertex1);
-	}
-}
-
-void OBJModel::RemoveEdge(Edge &e, int newVertex)
-{
-	auto v1 = *e.vertex1;
-	auto v2 = *e.vertex2;
-	
-	std::vector<OBJIndex> face;
-	for (auto it = OBJIndices.begin(); it != OBJIndices.end();)
-	{
-		auto f1 = it;
-		++it;
-		auto f2 = it;
-		++it;
-		auto f3 = it;
-		++it;
-
-		face.push_back(*f1);
-		face.push_back(*f2);
-		face.push_back(*f3);
-
-		auto i1 = std::find(face.begin(), face.end(), v1);
-		auto i2 = std::find(face.begin(), face.end(), v2);
-
-		if (i1 == face.end() || i2 == face.end())
-		{
-			continue;
-		}
-
-		int oldV1 = v1.vertexIndex;
-		int oldV2 = v2.vertexIndex;
-		for(OBJIndex o : OBJIndices)
-		{
-			if(o.vertexIndex == oldV1 || o.vertexIndex == oldV2)
-			{
-				o.vertexIndex = newVertex;
-			}
-		}
-
-		OBJIndices.erase(f1);
-		OBJIndices.erase(f2);
-		OBJIndices.erase(f3);
-	}
-}
-
-void OBJModel::RemoveDuplicates()
-{
-	std::sort(edges.begin(), edges.end());
-	for (auto it = edges.begin(); it != edges.end();)
-	{
-		break;
-	}
-}
-
-void OBJModel::UpdateNeighborsError(OBJIndex &v)
-{
-	/*auto range = neighbors.equal_range(v);
-	for (auto it = range.first; it != range.second; it++)
-	{
-		// Calculate Q
-	}
-
-	for(auto e : edges)
-	{
-		CalculateEdgeError(e);
-	}*/
-}
-
-void OBJModel::InitializeSimplification()
-{
-	using namespace glm;
-	for (auto v : vertices)
-	{
-		Q.push_back(mat4(0));
-	}
-
-	for (auto it = OBJIndices.begin(); it != OBJIndices.end(); ++it)
-	{
-		auto i0 = (*it).vertexIndex;
-		auto v0 = vertices[i0];
-		++it;
-		auto i1 = (*it).vertexIndex;
-		auto v1 = vertices[i1];
-		++it;
-		auto i2 = (*it).vertexIndex;
-		auto v2 = vertices[i2];
-
-		auto u = v1 - v0;
-		auto v = v2 - v0;
-		auto normal = cross(u, v);
-		auto a = normal.x;
-		auto b = normal.y;
-		auto c = normal.z;
-		auto d = dot(normal, v0);
-
-		auto kp = mat4(
-			a * a, a * b, a * c, a * d,
-			a * b, b * b, b * c, b * d,
-			a * c, b * c, c * c, c * d,
-			a * d, b * d, c * d, d * d
-			);
-
-		Q[i0] += kp;
-		Q[i1] += kp;
-		Q[i2] += kp;
-	}
-
-	for (auto e : edges)
-	{
-		e.error = CalculateEdgeError(e);
-	}
-}
-
-double OBJModel::CalculateEdgeError(Edge& e)
-{
-	auto v = glm::vec4((vertices[e.vertex1->vertexIndex] + vertices[e.vertex2->vertexIndex]) / 2.0f, 1);
-	auto q1 = Q[e.vertex1->vertexIndex];
-	auto q2 = Q[e.vertex2->vertexIndex];
-	auto mv = (q1 + q2) * v;
-	return glm::dot(v, mv);
-}
-
 unsigned int OBJModel::FindLastVertexIndex(const std::vector<OBJIndex*>& indexLookup, const OBJIndex* currentIndex, const IndexedModel& result)
 {
-    unsigned int start = 0;
-    unsigned int end = indexLookup.size();
-    unsigned int current = (end - start) / 2 + start;
-    unsigned int previous = start;
-    
-    while(current != previous)
-    {
-        OBJIndex* testIndex = indexLookup[current];
-        
-        if(testIndex->vertexIndex == currentIndex->vertexIndex)
-        {
-            unsigned int countStart = current;
-        
-            for(unsigned int i = 0; i < current; i++)
-            {
-                OBJIndex* possibleIndex = indexLookup[current - i];
-                
-                if(possibleIndex == currentIndex)
-                    continue;
-                    
-                if(possibleIndex->vertexIndex != currentIndex->vertexIndex)
-                    break;
-                    
-                countStart--;
-            }
-            
-            for(unsigned int i = countStart; i < indexLookup.size() - countStart; i++)
-            {
-                OBJIndex* possibleIndex = indexLookup[current + i];
-                
-                if(possibleIndex == currentIndex)
-                    continue;
-                    
-                if(possibleIndex->vertexIndex != currentIndex->vertexIndex)
-                    break;
-                else if((!hasUVs || possibleIndex->uvIndex == currentIndex->uvIndex) 
-                    && (!hasNormals || possibleIndex->normalIndex == currentIndex->normalIndex))
-                {
-                    glm::vec3 currentPosition = vertices[currentIndex->vertexIndex];
-                    glm::vec2 currentTexCoord;
-                    glm::vec3 currentNormal;
-                    glm::vec3 currentColor;
+	unsigned int start = 0;
+	unsigned int end = indexLookup.size();
+	unsigned int current = (end - start) / 2 + start;
+	unsigned int previous = start;
 
-                    if(hasUVs)
-                        currentTexCoord = uvs[currentIndex->uvIndex];
-                    else
-                        currentTexCoord = glm::vec2(0,0);
-                        
-                    if(hasNormals)
+	while (current != previous)
+	{
+		OBJIndex* testIndex = indexLookup[current];
+
+		if (testIndex->vertexIndex == currentIndex->vertexIndex)
+		{
+			unsigned int countStart = current;
+
+			for (unsigned int i = 0; i < current; i++)
+			{
+				OBJIndex* possibleIndex = indexLookup[current - i];
+
+				if (possibleIndex == currentIndex)
+					continue;
+
+				if (possibleIndex->vertexIndex != currentIndex->vertexIndex)
+					break;
+
+				countStart--;
+			}
+
+			for (unsigned int i = countStart; i < indexLookup.size() - countStart; i++)
+			{
+				OBJIndex* possibleIndex = indexLookup[current + i];
+
+				if (possibleIndex == currentIndex)
+					continue;
+
+				if (possibleIndex->vertexIndex != currentIndex->vertexIndex)
+					break;
+				else if ((!hasUVs || possibleIndex->uvIndex == currentIndex->uvIndex)
+					&& (!hasNormals || possibleIndex->normalIndex == currentIndex->normalIndex))
+				{
+					glm::vec3 currentPosition = vertices[currentIndex->vertexIndex];
+					glm::vec2 currentTexCoord;
+					glm::vec3 currentNormal;
+					glm::vec3 currentColor;
+
+					if (hasUVs)
+						currentTexCoord = uvs[currentIndex->uvIndex];
+					else
+						currentTexCoord = glm::vec2(0, 0);
+
+					if (hasNormals)
 					{
-                        currentNormal = normals[currentIndex->normalIndex];
-						currentColor =  normals[currentIndex->normalIndex];
+						currentNormal = normals[currentIndex->normalIndex];
+						currentColor = normals[currentIndex->normalIndex];
 					}
 					else
-                    {
-						currentNormal = glm::vec3(0,0,0);
-						currentColor = glm::normalize(glm::vec3(1,1,1));
+					{
+						currentNormal = glm::vec3(0, 0, 0);
+						currentColor = glm::normalize(glm::vec3(1, 1, 1));
 					}
-                    for(unsigned int j = 0; j < result.positions.size(); j++)
-                    {
-                        if(currentPosition == result.positions[j] 
-                            && ((!hasUVs || currentTexCoord == result.texCoords[j])
-                            && (!hasNormals || currentNormal == result.normals[j])))
-                        {
-                            return j;
-                        }
-                    }
-                }
-            }
-        
-            return -1;
-        }
-        else
-        {
-            if(testIndex->vertexIndex < currentIndex->vertexIndex)
-                start = current;
-            else
-                end = current;
-        }
-    
-        previous = current;
-        current = (end - start) / 2 + start;
-    }
-    
-    return -1;
+					for (unsigned int j = 0; j < result.positions.size(); j++)
+					{
+						if (currentPosition == result.positions[j]
+							&& ((!hasUVs || currentTexCoord == result.texCoords[j])
+								&& (!hasNormals || currentNormal == result.normals[j])))
+						{
+							return j;
+						}
+					}
+				}
+			}
+
+			return -1;
+		}
+		else
+		{
+			if (testIndex->vertexIndex < currentIndex->vertexIndex)
+				start = current;
+			else
+				end = current;
+		}
+
+		previous = current;
+		current = (end - start) / 2 + start;
+	}
+
+	return -1;
 }
 
 void OBJModel::CreateOBJFace(const std::string& line)
 {
-    std::vector<std::string> tokens = SplitString(line, ' ');
+	std::vector<std::string> tokens = SplitString(line, ' ');
 	unsigned int tmpIndex = OBJIndices.size();
-//	std::list<OBJIndex>::iterator faceIt = OBJIndices.end();
-	OBJIndex v1 = ParseOBJIndex(tokens[1], &this->hasUVs, &this->hasNormals);
-	OBJIndex v2 = ParseOBJIndex(tokens[2], &this->hasUVs, &this->hasNormals);
-	OBJIndex v3 = ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals);
-	AddOBJFace(v1, v2, v3);
+	//	std::list<OBJIndex>::iterator faceIt = OBJIndices.end();
+	OBJIndices.push_back(ParseOBJIndex(tokens[1], &this->hasUVs, &this->hasNormals));
+
+	OBJIndices.push_back(ParseOBJIndex(tokens[2], &this->hasUVs, &this->hasNormals));
+
+	OBJIndices.push_back(ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals));
 
 	if ((int)tokens.size() > 4)//triangulation
 	{
-		v1 = ParseOBJIndex(tokens[1], &this->hasUVs, &this->hasNormals);
-		v3 = ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals);
-		auto v4 = ParseOBJIndex(tokens[4], &this->hasUVs, &this->hasNormals);
-		AddOBJFace(v1, v3, v4);
+		OBJIndices.push_back(ParseOBJIndex(tokens[1], &this->hasUVs, &this->hasNormals));
+
+		OBJIndices.push_back(ParseOBJIndex(tokens[3], &this->hasUVs, &this->hasNormals));
+
+		OBJIndices.push_back(ParseOBJIndex(tokens[4], &this->hasUVs, &this->hasNormals));
+
 	}
-}
-
-void OBJModel::AddOBJFace(OBJIndex& v1, OBJIndex& v2, OBJIndex& v3)
-{
-	OBJIndices.push_back(v1);
-	OBJIndices.push_back(v2);
-	OBJIndices.push_back(v3);
-
-	auto it = OBJIndices.end();
-	std::advance(it, -3);
-
-	auto i1 = it++;
-	auto i2 = it++;
-	auto i3 = it++;
-
-	edges.push_back(CreateEdge(i1, i2));
-	edges.push_back(CreateEdge(i2, i3));
-	edges.push_back(CreateEdge(i3, i1));
-}
-
-Edge OBJModel::CreateEdge(std::list<OBJIndex>::iterator& v1, std::list<OBJIndex>::iterator& v2)
-{
-	Edge e;
-
-	e.vertex1 = v1;
-	e.vertex2 = v2;
-	e.error = 0;
-
-
-	auto range = neighbors.equal_range(*v1);
-	auto found = false;
-	for (auto it = range.first; it != range.second; it++)
-	{
-		if(it->second == *v2)
-		{
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		neighbors.insert(std::pair<OBJIndex, OBJIndex>(*v1, *v2));
-		neighbors.insert(std::pair<OBJIndex, OBJIndex>(*v2, *v1));
-	}
-
-	/*if (std::find(neighbors[v1].begin(), neighbors[v1].end(), v2) == neighbors[v1].end())
-	{
-		neighbors[v1].push_back(v2);
-		neighbors[v2].push_back(v1);
-
-		neighbors.insert(std::pair<OBJIndex, OBJIndex>(v1, v2));
-		neighbors.insert(std::pair<OBJIndex, OBJIndex>(v2, v1));
-	}*/
-
-	return e;
 }
 
 OBJIndex OBJModel::ParseOBJIndex(const std::string& token, bool* hasUVs, bool* hasNormals)
