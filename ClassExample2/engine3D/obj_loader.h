@@ -84,6 +84,7 @@ private:
 	void InitializeVerticesError();
 	void InitializeEdgesError();
 	void CalculateEdgeError(int edge);
+	glm::vec3 OBJModel::FindOptimalPosition(const Edge& e);
 	void RemoveFaces(int v1, int v2);
 	bool FaceContains(int vIndex, OBJIndex &f1, OBJIndex &f2, OBJIndex &f3);
 	void UpdateEdges(int v1, int v2);

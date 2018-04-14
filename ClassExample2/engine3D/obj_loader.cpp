@@ -265,16 +265,34 @@ void OBJModel::InitializeEdgesError()
 	}
 }
 
-void OBJModel::CalculateEdgeError(int edge)
+void OBJModel::CalculateEdgeError(int e)
 {
-	auto position = (vertices[edges[edge].v1.vertexIndex] + vertices[edges[edge].v2.vertexIndex]) / 2.0f;
-	auto v = glm::vec4(position, 1.0f);
-	auto q1 = Q[edges[edge].v1.vertexIndex];
-	auto q2 = Q[edges[edge].v2.vertexIndex];
+	auto q1 = Q[edges[e].v1.vertexIndex];
+	auto q2 = Q[edges[e].v2.vertexIndex];
+	edges[e].q = q1 + q2;
+	edges[e].position = FindOptimalPosition(edges[e]);
+	auto v = glm::vec4(edges[e].position, 1.0f);
 	auto mv = (q1 + q2) * v;
-	edges[edge].position = position;
-	edges[edge].q = q1 + q2;
-	edges[edge].err = glm::dot(v, mv);
+	edges[e].err = glm::dot(v, mv);
+}
+
+glm::vec3 OBJModel::FindOptimalPosition(const Edge& e)
+{
+	auto q = e.q;
+	for (auto i = 0; i < 3; i++)
+	{
+		q[3][i] = 0;
+	}
+	q[3][3] = 1;
+	auto epsilon = 0.001f;
+	if(std::abs(glm::determinant(q)) > epsilon)
+	{
+		q = glm::inverse(q);
+		return glm::vec3(q[0][3], q[1][3], q[2][3]);
+	} else
+	{
+		return (vertices[e.v1.vertexIndex] + vertices[e.v2.vertexIndex]) / 2.0f;
+	}
 }
 
 void OBJModel::RemoveFaces(int v1, int v2)
