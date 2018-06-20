@@ -3,7 +3,7 @@ Video Games Programming - Assignment 1
 
 An implementation of a mesh simplifier algorithm, described in the paper "Surface Simplification Using Quadric Error Metrics" by Michael Garland and Paul S. Heckbert.
 
-Paper can be found [here.](https://github.com/TalBarami/Mesh-Simplification/blob/master/resources/mesh%20simplification.pdf "Mesh Simplification Paper")here.
+Paper can be found [here.](https://github.com/TalBarami/Mesh-Simplification/blob/master/resources/mesh%20simplification.pdf "Mesh Simplification Paper")
 
 Here are examples of simplifying a mesh composed of 15477 faces into 5000, 1000 and 400 faces: 
 
